@@ -51,7 +51,7 @@ def format_bytes(raw_data):
 class MiFloraPoller:
     """A class to read data from Mi Flora plant sensors."""
 
-    def __init__(self, mac, backend, cache_timeout=600, adapter="hci0"):
+    def __init__(self, mac, backend, cache_timeout=600, adapter="hci0", conn_timeout=None):
         """
         Initialize a Mi Flora Poller for the given MAC address.
         """
@@ -60,6 +60,7 @@ class MiFloraPoller:
         self._bt_interface = BluetoothInterface(backend, adapter=adapter)
         self._cache = None
         self._cache_timeout = timedelta(seconds=cache_timeout)
+        self._conn_timeout = conn_timeout;
         self._last_read = None
         self._fw_last_read = None
         self.lock = Lock()
@@ -68,7 +69,7 @@ class MiFloraPoller:
 
     def name(self):
         """Return the name of the sensor."""
-        with self._bt_interface.connect(self._mac) as connection:
+        with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
             name = connection.read_handle(
                 _HANDLE_READ_NAME
             )  # pylint: disable=no-member
@@ -91,7 +92,7 @@ class MiFloraPoller:
             )
             raise
 
-        with self._bt_interface.connect(self._mac) as connection:
+        with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
             if firmware_version >= "2.6.6":
                 # for the newer models a magic number must be written before we can read the current data
                 try:
@@ -136,7 +137,7 @@ class MiFloraPoller:
             datetime.now() - timedelta(hours=24) > self._fw_last_read
         ):
             self._fw_last_read = datetime.now()
-            with self._bt_interface.connect(self._mac) as connection:
+            with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
                 res = connection.read_handle(
                     _HANDLE_READ_VERSION_BATTERY
                 )  # pylint: disable=no-member
@@ -254,7 +255,7 @@ class MiFloraPoller:
         History is updated by the sensor every hour.
         """
         data = []
-        with self._bt_interface.connect(self._mac) as connection:
+        with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
             connection.write_handle(
                 _HANDLE_HISTORY_CONTROL, _CMD_HISTORY_READ_INIT
             )  # pylint: disable=no-member
@@ -309,7 +310,7 @@ class MiFloraPoller:
         On the next fetch_history, you will only get new data.
         Note: The data is deleted from the device. There is no way to recover it!
         """
-        with self._bt_interface.connect(self._mac) as connection:
+        with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
             connection.write_handle(
                 _HANDLE_HISTORY_CONTROL, _CMD_HISTORY_READ_INIT
             )  # pylint: disable=no-member
@@ -328,7 +329,7 @@ class MiFloraPoller:
         The device time is in seconds.
         """
         start = time.time()
-        with self._bt_interface.connect(self._mac) as connection:
+        with self._bt_interface.connect(self._mac, timeout=self._conn_timeout) as connection:
             response = connection.read_handle(
                 _HANDLE_DEVICE_TIME
             )  # pylint: disable=no-member
